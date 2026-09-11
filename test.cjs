@@ -1,0 +1,17 @@
+const assert=require("node:assert/strict"),C=require("./dist/calendar.js");
+const c={id:"test",name:"数据,结构;测试\\\n中文".repeat(20),teacher:"张",location:"教五",day:"1",start:"08:00",end:"09:40",weeks:"1-16",parity:"all",reminder:"10"};
+assert.equal(C.expand("2026-09-07",[c]).length,16);
+assert.deepEqual(C.weeks("1-4,4,8","even"),[2,4,8]);
+assert.deepEqual(C.weeks("1-5","odd"),[1,3,5]);
+assert.throws(()=>C.weeks("16-1"));assert.throws(()=>C.weeks("0"));assert.throws(()=>C.weeks("31"));assert.throws(()=>C.weeks("2","odd"));
+assert.throws(()=>C.expand("2026-09-08",[c]));assert.throws(()=>C.expand("2026-09-07",[{...c,end:"07:00"}]));
+assert.equal(C.expand("2024-02-26",[{...c,day:"4",weeks:"1"}])[0].date,"2024-02-29");
+assert.equal(C.expand("2026-12-28",[{...c,weeks:"2"}])[0].date,"2027-01-04");
+const events=C.expand("2026-09-07",[c]),ics=C.ics(events,0);
+assert.equal(new Date(events[0].begin).toISOString(),"2026-09-07T00:00:00.000Z");
+assert.equal((ics.match(/BEGIN:VEVENT/g)||[]).length,16);assert.equal((ics.match(/BEGIN:VALARM/g)||[]).length,16);
+for(const l of ics.split("\r\n"))assert.ok(Buffer.byteLength(l)<=75);
+assert.ok(ics.replace(/\r\n /g,"").includes("SUMMARY:"+C.escapeText(c.name)));
+assert.equal(new Set([...ics.matchAll(/UID:(.*)/g)].map(x=>x[1])).size,16);
+assert.equal(ics.endsWith("END:VCALENDAR\r\n"),true);assert.ok(!ics.replace(/\r\n/g,"").includes("\n"));
+console.log("通过：周数、单双周、无效输入、闰年/跨年、UTC+8、提醒、UID、中文折行、转义。");

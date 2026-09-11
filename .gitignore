@@ -1,0 +1,5 @@
+# 测试依赖与产物
+work/v02-tests/node_modules/
+work/v02-tests/*.traineddata
+work/v02-tests/ocr-result.json
+work/v02-tests/ocr-parsed.json
