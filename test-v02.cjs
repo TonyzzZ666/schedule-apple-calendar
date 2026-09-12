@@ -1,4 +1,4 @@
-const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+﻿const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const {JSDOM}=require("./work/v02-tests/node_modules/jsdom");
 const M=require("./dist/course-model"),C=require("./dist/calendar"),I=require("./dist/course-import");
 const monday="2026-09-07";
@@ -17,7 +17,7 @@ assert.equal(I.parseText("课程：高等数学\n星期二\n第3-4节")[0].sessi
 assert.equal(I.parseText("课程：大学英语")[0].sessions.length,0);
 const twice=M.mergeDrafts(M.mergeDrafts([],parsed),parsed);
 assert.equal(twice.length,1);assert.equal(twice[0].sessions.length,2);assert.ok(twice[0].needsReview);
-const diff=M.mergeDrafts(twice,[{...parsed[0],teacher:"李老师"}]);assert.equal(diff.length,2);
+const diff=M.mergeDrafts(twice,[{...parsed[0],teacher:"李老师"}]);assert.equal(diff.length,1);assert.ok(diff[0].teacher.includes("李老师"));
 const w=(text,x,y)=>({text,bbox:{x0:x,y0:y,x1:x+90,y1:y+20}});
 const grid={text:"",blocks:[{paragraphs:[{lines:[{words:[w("星期一",100,10),w("星期三",400,10),w("数据结构",100,60),w("08:00-09:40",100,90),w("1-16周",100,120),w("高等数学",400,60),w("10:00-11:40",400,90),w("1-8周",400,120)]}]}]}]};
 const gridResult=I.parseOcr(grid);assert.equal(gridResult.gridDetected,true);assert.equal(gridResult.drafts.length,2);assert.equal(gridResult.drafts[1].sessions[0].day,3);
@@ -58,3 +58,4 @@ fill("rawText","课程：数据结构（实验）\n周五 10:00-11:40\n周次：
 
 assert.deepEqual(I.parseText("课程:数据结构\n周一 08:00-09:40 单周 周三 10:00-11:40 双周")[0].sessions.map(s=>[s.day,s.start,s.parity]),[[1,"08:00","odd"],[3,"10:00","even"]]);
 assert.deepEqual(I.parseText("课程:数据结构\n周一 08:00-09:40 单周\n周三 第3-4节")[0].sessions.map(s=>[s.day,s.start,s.parity]),[[1,"08:00","odd"],[3,"","all"]]);
+

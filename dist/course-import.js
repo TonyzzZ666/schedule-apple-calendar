@@ -1,4 +1,4 @@
-(function(root){
+﻿(function(root){
 "use strict";
 const normalize=s=>String(s).normalize("NFKC").replace(/[–—~～至]/g,"-").replace(/，/g,",").replace(/([一-鿿])[ \t]+(?=[一-鿿])/g,"$1").trim();
 const dayNumber=s=>({"一":1,"二":2,"三":3,"四":4,"五":5,"六":6,"日":7,"天":7,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7})[s];
@@ -91,11 +91,12 @@ function parseOcr(data){
  parsed.push(...parseText(raw,h.day));
  }
  }
- return {drafts:parsed,text:sources.join("\n\n"),gridDetected:true};
+ return {drafts:parsed,text:sources.join("\n\n"),gridDetected:true,headers};
 }
 root.CourseImport={parseBlock,parseText,parseOcr};
 if(typeof module!=="undefined")module.exports=root.CourseImport;
 })(globalThis);
+
 
 
 

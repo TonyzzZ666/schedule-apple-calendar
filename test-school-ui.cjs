@@ -1,0 +1,16 @@
+﻿const fs=require("fs"),assert=require("node:assert/strict"),{JSDOM}=require("./work/v02-tests/node_modules/jsdom");
+const dom=new JSDOM(fs.readFileSync("dist/index.html","utf8"),{runScripts:"outside-only",url:"http://localhost/"});
+const w=dom.window;for(const f of ["school-schedule","calendar","course-model","course-import","course-vision","ocr","app","schedule-ui"])w.eval(fs.readFileSync("dist/"+f+".js","utf8"));
+w.document.getElementById("buildSchedule").click();
+assert.equal(w.document.querySelectorAll("#scheduleRows input").length,16);
+assert.equal(w.document.getElementById("nightCount"),null);
+assert.equal(w.document.getElementById("nightStart"),null);
+w.document.getElementById("saveSchedule").click();
+assert.equal(w.SchoolSchedule.resolve(1,2).end,"09:40");
+w.document.querySelector("#scheduleRows input").value="23:50";
+w.document.querySelector("#scheduleRows input").dispatchEvent(new w.Event("change"));
+w.document.getElementById("saveSchedule").click();
+assert.match(w.document.getElementById("scheduleStatus").textContent,/不能重叠/);
+assert.equal(w.SchoolSchedule.resolve(1,2).start,"08:00");
+console.log("PASS: full page loads, schedule generation and confirmation work, invalid edits preserve previous confirmed schedule.");
+dom.window.close();

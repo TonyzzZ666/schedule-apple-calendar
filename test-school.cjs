@@ -1,0 +1,10 @@
+﻿const assert=require("node:assert/strict"),S=require("./dist/school-schedule"),M=require("./dist/course-model");
+const r=S.generate([{count:4,start:"08:00"},{count:4,start:"14:00"},{count:2,start:"19:00"}],45,10);
+S.setRows(r);assert.deepEqual(S.resolve(1,2),{start:"08:00",end:"09:40"});assert.deepEqual(S.resolve(5,6),{start:"14:00",end:"15:40"});
+assert.throws(()=>S.generate([{count:4,start:"08:00"},{count:4,start:"09:00"}],45,10));
+assert.throws(()=>S.generate([{count:4,start:"23:00"}],45,10));
+assert.equal(S.resolve(9,11),null);
+assert.deepEqual(S.mapSections({y:100,height:200},[{section:1,y:130},{section:2,y:230},{section:3,y:330}]),{startSection:1,endSection:2});
+assert.equal(S.mapSections({y:100,height:200},[{section:1,y:130}]),null);
+assert.equal(M.session({startSection:2,endSection:4}).endSection,4);
+console.log("PASS: breaks, afternoon reset, multisection times, invalid schedules and section metadata.");

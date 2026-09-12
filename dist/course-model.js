@@ -1,4 +1,4 @@
-(function(root){
+﻿(function(root){
 "use strict";
 const C=typeof module!=="undefined"?require("./calendar.js"):root.CourseCalendar;
 let seq=0;
@@ -7,13 +7,14 @@ function course(info={}){
  return {id:id(),name:info.name||"",teacher:info.teacher||"",location:info.location||"",reminder:info.reminder||"none",sessions:[],needsReview:true,sourceText:info.sourceText||""};
 }
 function session(info={}){
- return {id:id(),day:Number(info.day)||1,start:info.start||"",end:info.end||"",weeks:info.weeks||"1-16",parity:info.parity||"all",location:info.location||"",sourceText:info.sourceText||""};
+ return {id:id(),startSection:info.startSection||null,endSection:info.endSection||null,sourceSlot:info.sourceSlot||"",day:info.day===0?0:(Number(info.day)||1),start:info.start||"",end:info.end||"",weeks:info.weeks||"1-16",parity:info.parity||"all",location:info.location||"",sourceText:info.sourceText||""};
 }
 function rows(c){
  return c.sessions.map(s=>({...s,id:c.id+"-"+s.id,name:c.name,teacher:c.teacher,location:s.location||c.location,reminder:c.reminder}));
 }
 function validate(c,semester){
  if(!c.name.trim())throw Error("请填写课程名称");
+ if(c.sessions.some(s=>s.day===0))throw Error("请先补全未知星期，再确认课程");
  if(!c.sessions.length)throw Error("请至少选择一个上课日并填写时间");
  return C.expand(semester,rows(c));
 }
@@ -31,12 +32,13 @@ function mergeDrafts(existing,drafts){
  const result=existing.map(c=>({...c,sessions:c.sessions.map(s=>({...s}))}));
  for(const d of drafts){
  if(!d.name.trim())continue;
- let c=result.find(x=>key(x.name)===key(d.name)&&key(x.teacher)===key(d.teacher));
+ let c=result.find(x=>key(x.name)===key(d.name));
  if(!c){c=course(d);result.push(c);}
- const signature=s=>JSON.stringify([s.day,s.start,s.end,s.weeks,s.parity,s.location]);
+ c.teacher=[...new Set([c.teacher,d.teacher].filter(Boolean).flatMap(t=>t.split(/\s*\/\s*/)))].join(" / ");
+ const signature=s=>JSON.stringify([s.day,s.start,s.end,s.weeks,s.parity,s.location,(!s.start&&!s.end)?s.sourceSlot||"":""]);
  const seen=new Set(c.sessions.map(signature));
  for(const raw of d.sessions||[]){
- const s=session(raw);if(!seen.has(signature(s))){c.sessions.push(s);seen.add(signature(s));}
+ const s=session({...raw,location:raw.location||d.location||""});if(!seen.has(signature(s))){c.sessions.push(s);seen.add(signature(s));}
  }
  if(!c.location)c.location=d.location||"";
  c.sourceText=[c.sourceText,d.sourceText].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join("\n\n").slice(0,16000);
@@ -46,3 +48,5 @@ function mergeDrafts(existing,drafts){
 root.CourseModel={id,course,session,rows,validate,confirmedEvents,exportEvents,mergeDrafts};
 if(typeof module!=="undefined")module.exports=root.CourseModel;
 })(globalThis);
+
+

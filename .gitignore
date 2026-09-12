@@ -3,3 +3,17 @@ work/v02-tests/node_modules/
 work/v02-tests/*.traineddata
 work/v02-tests/ocr-result.json
 work/v02-tests/ocr-parsed.json
+
+# 本地工具配置、截图和临时识别产物
+.claude/
+work/*.cjs
+work/*.txt
+work/*.html
+work/*.log
+work/v02-tests/*.rgba
+work/v02-tests/sample*
+课表测试3.png
+课表测试4.png
+课表测试5.jpg
+课表测试6.jpg
+课表测试7.jpg

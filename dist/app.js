@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 const $=id=>document.getElementById(id),M=CourseModel,C=CourseCalendar,I=CourseImport;
 const DAYS=["一","二","三","四","五","六","日"];
 let courses=[],selected=null,candidates=[],imageFile=null,imageUrl=null,recognizing=false;
@@ -57,14 +57,17 @@ function renderSchedule(){
  else{c.sessions=c.sessions.filter(s=>s.day!==day);markChanged(c);renderSchedule();}
  };wrap.append(check,node("span","周"+label));$("weekdays").append(wrap);
  });
- for(let day=1;day<=7;day++){
+ for(let day=0;day<=7;day++){
  const sessions=c.sessions.filter(s=>s.day===day);if(!sessions.length)continue;
- const group=node("div","","day-group"),title=node("div","","title");title.append(node("h3","周"+DAYS[day-1]),button("＋ 再加一个时段",()=>addSession(day),"subtle"));group.append(title);
+ const group=node("div","","day-group"),title=node("div","","title");title.append(node("h3",(day?"周"+DAYS[day-1]:"星期待确认")),button("＋ 再加一个时段",()=>addSession(day),"subtle"));group.append(title);
  sessions.forEach((s,index)=>{
- const item=node("div","","session"),prefix="周"+DAYS[day-1]+"时段"+(index+1);
+ const item=node("div","","session"),prefix=(day?"周"+DAYS[day-1]:"星期待确认")+"时段"+(index+1);
  const update=key=>value=>{s[key]=value;markChanged(c);};
  const top=node("div","","title");top.append(node("b","时段 "+(index+1)),button("移除此时段",()=>{c.sessions=c.sessions.filter(x=>x.id!==s.id);markChanged(c);renderSchedule();},"subtle danger"));item.append(top);
  const grid=node("div","","fields");
+ if(!day){const select=document.createElement("select");select.setAttribute("aria-label","补全上课星期");select.append(new Option("请选择星期",""));DAYS.forEach((d,i)=>select.append(new Option("周"+d,String(i+1))));select.onchange=()=>{if(select.value){s.day=Number(select.value);markChanged(c);renderSchedule();}};grid.append(select);}
+
+ if(globalThis.SchoolSchedule){grid.append(inputField(prefix+"开始节次",s.startSection||"","number",v=>{s.startSection=Number(v)||null;markChanged(c);}),inputField(prefix+"结束节次",s.endSection||"","number",v=>{s.endSection=Number(v)||null;markChanged(c);}));grid.append(button("按节次填时间",()=>{const time=SchoolSchedule.resolve(s.startSection,s.endSection);if(!time){say("请先确认学校作息表，并填写有效起止节次。","editorMessage");return;}Object.assign(s,time);markChanged(c);renderSchedule();}));}
  grid.append(inputField(prefix+"开始时间",s.start,"time",update("start")),inputField(prefix+"结束时间",s.end,"time",update("end")),inputField(prefix+"周数",s.weeks,"text",update("weeks")),parityField(prefix+"单双周",s.parity,update("parity")));
  const loc=inputField(prefix+"教室（留空用默认）",s.location,"text",update("location"));loc.className="wide";grid.append(loc);item.append(grid);
  if(s.sourceText)item.append(node("p","由识图预填，时间与周数请对照原图。","hint"));
@@ -89,6 +92,8 @@ for(const [field,key] of [["editName","name"],["editTeacher","teacher"],["editLo
 $("registerForm").onsubmit=e=>{
  e.preventDefault();const name=$("registerName").value.trim();if(!name)return;
  const c=M.course({name,teacher:$("registerTeacher").value.trim(),location:$("registerLocation").value.trim()});
+ const duplicate=courses.find(x=>x.name.normalize("NFKC").replace(/\s/g,"").toLowerCase()===c.name.normalize("NFKC").replace(/\s/g,"").toLowerCase());
+ if(duplicate){selectCourse(duplicate.id);say("这门课已经登记，直接修改已有课程即可。");return;}
  courses.push(c);$("registerForm").reset();selectCourse(c.id);renderSummary();say("已登记，请在右侧选择上课日。");
 };
 $("confirmCourse").onclick=()=>{
@@ -116,21 +121,43 @@ function renderCandidates(){
  const card=node("div","","candidate"),label=node("label","","candidate-select"),check=document.createElement("input");
  check.type="checkbox";check.checked=c.include!==false;check.onchange=()=>c.include=check.checked;
  label.append(check,node("span","候选 "+(i+1)));card.append(label);
- card.append(inputField("候选"+(i+1)+"课程名称",c.name,"text",v=>c.name=v),node("p",[c.teacher,c.location,c.sessions.length?c.sessions.length+" 个待核对时段":"时间待补充"].filter(Boolean).join(" · "),"hint"));
+ card.append(inputField("候选"+(i+1)+"课程名称",c.name,"text",v=>c.name=v),inputField("候选"+(i+1)+"默认地点",c.location,"text",v=>{const old=c.location;c.location=v;for(const session of c.sessions)if(!session.location||session.location===old)session.location=v;}),node("p",[c.teacher,c.sessions.length?c.sessions.length+" 个待核对时段":"时间待补充"].filter(Boolean).join(" · "),"hint"));
+ if(!c.sessions.length)c.sessions.push(M.session({day:0}));
+ c.sessions.forEach((ss,j)=>{
+ const row=node("div","","fields"),prefix="候选"+(i+1)+"时段"+(j+1);
+ const dayLabel=node("label",prefix+"星期"),day=document.createElement("select");
+ day.setAttribute("aria-label",prefix+"星期");day.append(new Option("请选择星期","0"));
+ DAYS.forEach((d,k)=>day.append(new Option("周"+d,String(k+1))));day.value=String(ss.day||0);
+ day.onchange=()=>{ss.day=Number(day.value);};dayLabel.append(day);
+ const hint=node("p","","hint");
+ const showTime=()=>{hint.textContent=ss.start&&ss.end?"时间："+ss.start+"–"+ss.end+"（登记后仍需确认）":"时间待补充；确认学校作息后，修改节次可自动计算。";};
+ const sectionLabel=node("label",prefix+"节次"),section=document.createElement("input");
+ section.type="text";section.maxLength=12;section.placeholder="例如 1-2 或 3";section.setAttribute("aria-label",prefix+"节次");
+ section.value=ss.startSection?(ss.startSection===ss.endSection?String(ss.startSection):ss.startSection+"-"+ss.endSection):"";
+ section.oninput=()=>{const v=section.value.trim(),m=v.match(/^(\d{1,2})(?:\s*[-—~至]\s*(\d{1,2}))?$/);
+ const a=m?Number(m[1]):0,b=m?Number(m[2]||m[1]):0;
+ const valid=!v||(a>=1&&b>=a&&b<=48);section.setCustomValidity(valid?"":"请填写1–48内的节次，例如1-2，结束节次不能早于开始节次。");
+ if(!valid){hint.textContent="节次格式不正确，请修改后登记。";return;}
+ ss.startSection=a||null;ss.endSection=b||null;
+ const time=globalThis.SchoolSchedule?.resolve(a,b);ss.start=time?.start||"";ss.end=time?.end||"";showTime();};
+ sectionLabel.append(section);row.append(dayLabel,sectionLabel);card.append(row,hint);showTime();
+ });
+
  $("candidates").append(card);
  });
 }
 $("parseText").onclick=()=>{
- candidates=I.parseText($("rawText").value);renderCandidates();
+ candidates=M.mergeDrafts([],I.parseText($("rawText").value));renderCandidates();
  say(candidates.length?"整理出 "+candidates.length+" 条候选，请勾选需要登记的课程。":"未找到课程。请用空行分隔课程，并以“课程：名称”开头。","ocrStatus");
 };
 $("importCandidates").onclick=()=>{
+ for(const input of $("candidates").querySelectorAll("input"))if(!input.checkValidity()){input.reportValidity();return;}
  const chosen=candidates.filter(c=>c.include!==false&&c.name.trim());
  if(!chosen.length){say("请勾选至少一门有名称的课程。","ocrStatus");return;}
  courses=M.mergeDrafts(courses,chosen);
  const target=courses.find(c=>c.needsReview);
  candidates=[];renderCandidates();selectCourse(target?.id||courses[0]?.id);renderSummary();
- say("已登记。完全同名且教师相同的课程已合并；请在已登记课程中逐门核对。","ocrStatus");
+ say("已登记。同名课程已合并，不同上课时段分别保留；请在已登记课程中逐门核对。","ocrStatus");
 };
 $("imageFile").onchange=()=>{
  imageFile=null;$("recognize").disabled=true;$("imagePreview").hidden=true;
@@ -150,10 +177,10 @@ $("recognize").onclick=async()=>{
  if(!recognizing)return;
  const data=await CourseOcr.recognize(image,m=>{
  const labels={"loading tesseract core":"正在加载识别引擎","initializing tesseract":"正在初始化","loading language traineddata":"正在加载中英文识别资源","initializing api":"正在准备识别","recognizing text":"正在识别文字"};
- say((labels[m.status]||"正在准备识别")+" "+Math.round((m.progress||0)*100)+"%","ocrStatus");$("ocrProgress").value=m.progress||0;
+ say((labels[m.status]||m.status||"正在准备识别")+" "+Math.round((m.progress||0)*100)+"%","ocrStatus");$("ocrProgress").value=m.progress||0;
  });
- const result=I.parseOcr(data);$("rawText").value=result.text;candidates=result.drafts;renderCandidates();
- say(candidates.length?"识别出 "+candidates.length+" 条候选。"+(result.gridDetected?"已尝试按星期列整理。":"未定位到星期表头，部分时间需要补填。")+"请先登记，再逐门核对。":"未整理出课程，请展开识别文字修正，或换一张只包含课表的清晰截图。","ocrStatus");
+ const result=data.courseResult||I.parseOcr(data);$("rawText").value=result.text;candidates=M.mergeDrafts([],result.drafts.map(d=>CourseVision.separateDraftLocation(d)));renderCandidates();
+ say(candidates.length?"识别出 "+candidates.length+" 条候选。"+(result.gridDetected?"已尝试按星期列整理。":"未定位到星期表头，部分时间需要补填。")+"课程名已合并；教室可能混入定位图标，时间和周数仍须核对。请先登记，再逐门编辑。":"未整理出课程，请展开识别文字修正，或粘贴相册识别文字继续登记。","ocrStatus");
  if(!candidates.length)$("rawPanel").open=true;
  }catch(e){say(e.message||"识别失败，请重试或粘贴识别文字。","ocrStatus");}
  finally{recognizing=false;$("recognize").disabled=!imageFile;$("imageFile").disabled=false;$("cancelOcr").hidden=true;$("ocrProgress").hidden=true;}
@@ -163,3 +190,7 @@ window.addEventListener("beforeunload",e=>{if(courses.length||candidates.length|
 renderRegistry();renderSummary();
 
 if(location.protocol==="file:"){$("launchNotice").hidden=false;$("launchNotice").textContent="当前是文件打开模式。识图请使用项目根目录的「启动课表工具.cmd」；手动登记仍可使用。";}
+
+
+
+

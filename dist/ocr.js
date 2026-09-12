@@ -1,4 +1,4 @@
-(function(root){
+﻿(function(root){
 "use strict";
 let enginePromise=null,active=null;
 function loadEngine(){
@@ -19,7 +19,7 @@ async function recognize(image,onProgress=()=>{}){
  if(active)throw Error("已有识别任务，请先取消或等待");
  const job={worker:null,cancelled:false,reject:null,phase:"loading"};active=job;
  let timer;
- const stopped=new Promise((_,reject)=>{job.reject=reject;timer=setTimeout(()=>{job.cancelled=true;job.worker?.terminate();reject(Error(job.phase==="loading"?"识别引擎或模型加载超时，请确认通过「启动课表工具.cmd」打开，并保留完整 dist 文件夹。":"图片识别耗时过长，请裁剪课表区域或降低图片尺寸后重试"));},150000);});
+ const stopped=new Promise((_,reject)=>{job.reject=reject;timer=setTimeout(()=>{job.cancelled=true;job.worker?.terminate();reject(Error(job.phase==="loading"?"识别引擎或模型加载超时，请确认通过「启动课表工具.cmd」打开，并保留完整 dist 文件夹。":"图片识别耗时过长，请换用分辨率较低的图片后重试"));},150000);});
  const run=async()=>{
  const T=await loadEngine();if(job.cancelled)throw Error("已取消识别");
  const worker=await T.createWorker(["chi_sim","eng"],1,{
@@ -36,6 +36,8 @@ async function recognize(image,onProgress=()=>{}){
  if(job.cancelled){await worker.terminate();throw Error("已取消识别");}
  await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"});
  job.phase="recognizing";
+ if(root.CourseVision&&image?.getContext){const grouped=await root.CourseVision.recognize(worker,image,onProgress,()=>job.cancelled);if(grouped)return {courseResult:grouped};throw Error("未能自动定位课表区域，目前更适合彩色课程块的正面截图。可以粘贴相册识别文字继续登记。");}
+ await worker.setParameters({tessedit_pageseg_mode:"11"});
  const result=await worker.recognize(image,{}, {text:true,blocks:true});
  return result.data;
  };
@@ -55,14 +57,20 @@ async function prepareImage(file){
  }
  try{
  const w=image.width,h=image.height;
- if(!w||!h||w*h>24000000)throw Error("图片尺寸过大，请裁剪为课表区域（不超过 2400 万像素）");
- const scale=Math.min(2,2800/Math.max(w,h));
- const canvas=document.createElement("canvas");canvas.width=Math.round(w*scale);canvas.height=Math.round(h*scale);
- const ctx=canvas.getContext("2d");ctx.fillStyle="white";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+ if(!w||!h||w*h>24000000)throw Error("图片尺寸过大，请使用不超过 2400 万像素的图片");
+ const top=0,croppedHeight=h;
+
+ const scale=Math.min(1,2800/Math.max(w,croppedHeight));
+ const canvas=document.createElement("canvas");canvas.width=Math.round(w*scale);canvas.height=Math.round(croppedHeight*scale);
+ const ctx=canvas.getContext("2d");ctx.fillStyle="white";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,top,w,croppedHeight,0,0,canvas.width,canvas.height);
  return canvas;
  }finally{close();}
 }
 root.CourseOcr={recognize,cancel,prepareImage};
 })(globalThis);
+
+
+
+
 
 

@@ -1,0 +1,18 @@
+﻿const fs=require("fs"),assert=require("node:assert/strict"),{JSDOM}=require("./work/v02-tests/node_modules/jsdom");
+const dom=new JSDOM(fs.readFileSync("dist/index.html","utf8"),{runScripts:"outside-only",url:"http://localhost/"}),w=dom.window;
+for(const f of ["school-schedule","calendar","course-model","course-import","course-vision","ocr","app","schedule-ui"])w.eval(fs.readFileSync("dist/"+f+".js","utf8")+(f==="app"?";globalThis.testBridge={set:d=>{candidates=M.mergeDrafts([],d);renderCandidates();},get:()=>courses};":""));
+w.SchoolSchedule.setRows(w.SchoolSchedule.generate([{count:4,start:"08:00"}],45,10));
+w.testBridge.set([{name:"基础物理学A",sessions:[{day:1,startSection:1,endSection:2},{day:0,startSection:3,endSection:4}]}]);
+const get=label=>w.document.querySelector('[aria-label="'+label+'"]');
+assert.equal(w.document.querySelectorAll("#candidates select").length,2);
+assert.equal(get("候选1时段1节次").value,"1-2");
+const day=get("候选1时段2星期");day.value="5";day.dispatchEvent(new w.Event("change"));
+const range=get("候选1时段2节次");range.value="4-2";range.dispatchEvent(new w.Event("input"));
+assert.equal(range.checkValidity(),false);w.document.getElementById("importCandidates").click();assert.equal(w.testBridge.get().length,0);
+range.value="2-3";range.dispatchEvent(new w.Event("input"));
+w.document.getElementById("importCandidates").click();
+const s=w.testBridge.get()[0].sessions[1];
+assert.equal(s.day,5);assert.equal(s.startSection,2);assert.equal(s.endSection,3);assert.equal(s.start,"08:55");assert.equal(s.end,"10:35");
+assert.equal(w.testBridge.get()[0].needsReview,true);
+console.log("PASS: candidate weekday/range editable per occurrence; invalid range blocked; edited sections and computed times survive registration.");
+dom.window.close();
