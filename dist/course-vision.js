@@ -193,7 +193,7 @@ async function recognize(worker,image,onProgress,cancelled){
  const minY=Math.min(...boxes.map(b=>b.y)),headerTop=0,headerHeight=Math.max(1,minY-headerTop);
  const rawHeaders=[];
  await worker.setParameters({tessedit_pageseg_mode:"11"});
- for(const col of columns(boxes,image.width)){
+ for(const col of (root.AppFlow?.mode==="manual"?[]:columns(boxes,image.width))){
  if(cancelled())throw Error("已取消识别");
  const left=Math.max(0,Math.round(col.x-col.width*.43)),cw=Math.min(image.width-left,Math.round(col.width*.86));
  const h=document.createElement("canvas");h.width=cw*2;h.height=headerHeight*2;
@@ -204,7 +204,7 @@ async function recognize(worker,image,onProgress,cancelled){
  }
  const headers=rawHeaders.length>=3?completeHeaders(rawHeaders,image.width):[];
  const blocks=[];
- const clocks=await readClockRows(worker,source,boxes);
+ const clocks=root.AppFlow?.mode==="manual"?[]:await readClockRows(worker,source,boxes);
  await worker.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"0"});
  for(let i=0;i<boxes.length;i++){
  if(cancelled())throw Error("已取消识别");
@@ -229,6 +229,7 @@ async function recognize(worker,image,onProgress,cancelled){
  blocks.push({...sections,end:scheduled?.end||"",box:boxes[i],text:data.text,enhancement,confidence:data.confidence,location:details?.location,titleLines:details?.titleLines,teacher:details?.teacher,reviewReason:[details?.reviewReason,scheduled&&clock&&scheduled.start!==clock.time?"作息表开始时间"+scheduled.start+"与截图"+clock.time+"不一致，请核对作息与节次。":""].filter(Boolean).join("\n"),start:scheduled?.start||clock?.time||""});
  }
  const result=assemble(blocks,headers);
+ if(root.AppFlow?.mode==="manual")result.drafts=result.drafts.map(c=>({...c,teacher:"",sessions:[]}));
  result.evidence=blocks.map(b=>({...b,needsReview:true}));return result;
 }
 root.CourseVision={detect,enhance,assemble,recognize,resize,completeHeaders,columns,detailBoundary,splitLocationSuffix,separateDraftLocation,visualBoundary,readClockRows};

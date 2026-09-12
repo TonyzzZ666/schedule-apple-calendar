@@ -67,7 +67,7 @@ function renderSchedule(){
  const grid=node("div","","fields");
  if(!day){const select=document.createElement("select");select.setAttribute("aria-label","补全上课星期");select.append(new Option("请选择星期",""));DAYS.forEach((d,i)=>select.append(new Option("周"+d,String(i+1))));select.onchange=()=>{if(select.value){s.day=Number(select.value);markChanged(c);renderSchedule();}};grid.append(select);}
 
- if(globalThis.SchoolSchedule){grid.append(inputField(prefix+"开始节次",s.startSection||"","number",v=>{s.startSection=Number(v)||null;markChanged(c);}),inputField(prefix+"结束节次",s.endSection||"","number",v=>{s.endSection=Number(v)||null;markChanged(c);}));grid.append(button("按节次填时间",()=>{const time=SchoolSchedule.resolve(s.startSection,s.endSection);if(!time){say("请先确认学校作息表，并填写有效起止节次。","editorMessage");return;}Object.assign(s,time);markChanged(c);renderSchedule();}));}
+ if(globalThis.SchoolSchedule&&globalThis.AppFlow?.mode!=="manual"){grid.append(inputField(prefix+"开始节次",s.startSection||"","number",v=>{s.startSection=Number(v)||null;markChanged(c);}),inputField(prefix+"结束节次",s.endSection||"","number",v=>{s.endSection=Number(v)||null;markChanged(c);}));grid.append(button("按节次填时间",()=>{const time=SchoolSchedule.resolve(s.startSection,s.endSection);if(!time){say("请先确认学校作息表，并填写有效起止节次。","editorMessage");return;}Object.assign(s,time);markChanged(c);renderSchedule();}));}
  grid.append(inputField(prefix+"开始时间",s.start,"time",update("start")),inputField(prefix+"结束时间",s.end,"time",update("end")),inputField(prefix+"周数",s.weeks,"text",update("weeks")),parityField(prefix+"单双周",s.parity,update("parity")));
  const loc=inputField(prefix+"教室（留空用默认）",s.location,"text",update("location"));loc.className="wide";grid.append(loc);item.append(grid);
  if(s.sourceText)item.append(node("p","由识图预填，时间与周数请对照原图。","hint"));
@@ -121,7 +121,8 @@ function renderCandidates(){
  const card=node("div","","candidate"),label=node("label","","candidate-select"),check=document.createElement("input");
  check.type="checkbox";check.checked=c.include!==false;check.onchange=()=>c.include=check.checked;
  label.append(check,node("span","候选 "+(i+1)));card.append(label);
- card.append(inputField("候选"+(i+1)+"课程名称",c.name,"text",v=>c.name=v),inputField("候选"+(i+1)+"默认地点",c.location,"text",v=>{const old=c.location;c.location=v;for(const session of c.sessions)if(!session.location||session.location===old)session.location=v;}),node("p",[c.teacher,c.sessions.length?c.sessions.length+" 个待核对时段":"时间待补充"].filter(Boolean).join(" · "),"hint"));
+ card.append(inputField("候选"+(i+1)+"课程名称",c.name,"text",v=>c.name=v),inputField("候选"+(i+1)+"默认地点",c.location,"text",v=>{const old=c.location;c.location=v;for(const session of c.sessions)if(!session.location||session.location===old)session.location=v;}),node("p",[globalThis.AppFlow?.mode==="manual"?"登记后手动填写星期和时间":c.teacher,globalThis.AppFlow?.mode==="manual"?"":c.sessions.length?c.sessions.length+" 个待核对时段":"时间待补充"].filter(Boolean).join(" · "),"hint"));
+ if(globalThis.AppFlow?.mode==="manual"){$("candidates").append(card);return;}
  if(!c.sessions.length)c.sessions.push(M.session({day:0}));
  c.sessions.forEach((ss,j)=>{
  const row=node("div","","fields"),prefix="候选"+(i+1)+"时段"+(j+1);
@@ -154,7 +155,7 @@ $("importCandidates").onclick=()=>{
  for(const input of $("candidates").querySelectorAll("input"))if(!input.checkValidity()){input.reportValidity();return;}
  const chosen=candidates.filter(c=>c.include!==false&&c.name.trim());
  if(!chosen.length){say("请勾选至少一门有名称的课程。","ocrStatus");return;}
- courses=M.mergeDrafts(courses,chosen);
+ courses=M.mergeDrafts(courses,globalThis.AppFlow?.mode==="manual"?chosen.map(c=>({...c,teacher:"",sessions:[]})):chosen);
  const target=courses.find(c=>c.needsReview);
  candidates=[];renderCandidates();selectCourse(target?.id||courses[0]?.id);renderSummary();
  say("已登记。同名课程已合并，不同上课时段分别保留；请在已登记课程中逐门核对。","ocrStatus");
@@ -194,3 +195,5 @@ if(location.protocol==="file:"){$("launchNotice").hidden=false;$("launchNotice")
 
 
 
+
+window.refreshInputMode=()=>{candidates=[];renderCandidates();renderSchedule();};

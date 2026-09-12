@@ -1,0 +1,15 @@
+const fs=require("fs"),assert=require("node:assert/strict"),{JSDOM}=require("./work/v02-tests/node_modules/jsdom");
+const d=new JSDOM(fs.readFileSync("dist/index.html","utf8"),{runScripts:"outside-only",url:"http://localhost/"}),w=d.window,el=id=>w.document.getElementById(id);
+for(const f of ["school-schedule","calendar","course-model","course-import","course-vision","ocr","app","schedule-ui","entry-flow"])w.eval(fs.readFileSync("dist/"+f+".js","utf8")+(f==="app"?";window.bridge={set:d=>{candidates=M.mergeDrafts([],d);renderCandidates();},courses:()=>courses};":""));
+assert.equal(el("entryScreen").hidden,false);assert.equal(el("mainScreen").hidden,true);assert.equal(el("scheduleScreen").hidden,true);
+el("chooseSchool").click();assert.equal(el("scheduleScreen").hidden,false);assert.equal(el("mainScreen").hidden,true);
+el("amCount").value="";el("amCount").dispatchEvent(new w.Event("input"));el("saveSchedule").click();assert.equal(el("mainScreen").hidden,true);el("amCount").value="4";el("amCount").dispatchEvent(new w.Event("input"));
+el("saveSchedule").click();assert.equal(w.AppFlow.mode,"school");assert.equal(el("mainScreen").hidden,false);assert.equal(el("imagePanel").open,true);
+const sample=[{name:"数据结构",location:"教学楼201",sessions:[{day:2,startSection:1,endSection:2,start:"08:00",end:"09:40"}]}];
+w.bridge.set(sample);assert.equal(el("candidates").querySelectorAll("select").length,1);assert.equal(el("candidates").querySelector('input[aria-label$="节次"]').value,"1-2");
+el("backToEntry").click();el("chooseManual").click();assert.equal(el("scheduleScreen").hidden,true);assert.equal(w.AppFlow.mode,"manual");
+w.bridge.set(sample);assert.equal(el("candidates").querySelectorAll("select").length,0);assert.equal(el("candidates").querySelectorAll('input[aria-label$="节次"]').length,0);
+el("importCandidates").click();assert.equal(w.bridge.courses()[0].sessions.length,0);
+assert.equal(el("sessions").querySelectorAll('input[type="number"]').length,0);
+console.log("PASS: two entry routes; school confirmation gate; automatic fields retained in school mode; manual candidates/register omit inferred times.");
+d.window.close();
