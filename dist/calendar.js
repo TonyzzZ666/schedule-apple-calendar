@@ -38,7 +38,7 @@ function ics(events,now=Date.now()){
  if(!events.length)throw Error("请先添加课程");
  const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//BecauseTools//CourseCalendar 0.1//ZH","CALSCALE:GREGORIAN"];
  for(const e of events){
- lines.push("BEGIN:VEVENT","UID:"+e.id+"-"+e.date+"@course-calendar.local","DTSTAMP:"+stamp(now),"DTSTART:"+stamp(e.begin),"DTEND:"+stamp(e.finish),"SUMMARY:"+escapeText(e.name),"LOCATION:"+escapeText(e.location),"DESCRIPTION:"+escapeText((e.teacher?"教师："+e.teacher+"\n":"")+"第 "+e.week+" 教学周；中国标准时间"));
+ lines.push("BEGIN:VEVENT","UID:"+e.id+"-"+e.date+"@course-calendar.local","DTSTAMP:"+stamp(now),"DTSTART:"+stamp(e.begin),"DTEND:"+stamp(e.finish),"SUMMARY:"+escapeText(e.name),"LOCATION:"+escapeText(e.location),"DESCRIPTION:"+escapeText((e.teacher?"教师："+e.teacher+"\n":"")+"第 "+e.week+" 教学周；中国标准时间"+(e.extra?"\n额外加课":"")+(e.makeupSource?"\n调休补课，来源日期："+e.makeupSource:"")));
  if(e.reminder!=="none")lines.push("BEGIN:VALARM","TRIGGER:-PT"+e.reminder+"M","ACTION:DISPLAY","DESCRIPTION:"+escapeText(e.name),"END:VALARM");
  lines.push("END:VEVENT");
  }lines.push("END:VCALENDAR");return lines.map(fold).join("\r\n")+"\r\n";

@@ -4,13 +4,13 @@ const C=typeof module!=="undefined"?require("./calendar.js"):root.CourseCalendar
 let seq=0;
 const id=()=> "c"+Date.now().toString(36)+"-"+(++seq)+"-"+Math.random().toString(36).slice(2);
 function course(info={}){
- return {id:id(),name:info.name||"",teacher:info.teacher||"",location:info.location||"",reminder:info.reminder||"none",sessions:[],needsReview:true,sourceText:info.sourceText||""};
+ return {id:id(),name:info.name||"",teacher:info.teacher||"",location:info.location||"",reminder:info.reminder||"none",extra:!!info.extra,sessions:[],needsReview:true,sourceText:info.sourceText||""};
 }
 function session(info={}){
  return {id:id(),startSection:info.startSection||null,endSection:info.endSection||null,sourceSlot:info.sourceSlot||"",day:info.day===0?0:(Number(info.day)||1),start:info.start||"",end:info.end||"",weeks:info.weeks||"1-16",parity:info.parity||"all",location:info.location||"",sourceText:info.sourceText||""};
 }
 function rows(c){
- return c.sessions.map(s=>({...s,id:c.id+"-"+s.id,name:c.name,teacher:c.teacher,location:s.location||c.location,reminder:c.reminder}));
+ return c.sessions.map(s=>({...s,id:c.id+"-"+s.id,name:c.name,teacher:c.teacher,location:s.location||c.location,reminder:c.reminder,extra:!!c.extra}));
 }
 function validate(c,semester){
  if(!c.name.trim())throw Error("请填写课程名称");
@@ -32,7 +32,7 @@ function mergeDrafts(existing,drafts){
  const result=existing.map(c=>({...c,sessions:c.sessions.map(s=>({...s}))}));
  for(const d of drafts){
  if(!d.name.trim())continue;
- let c=result.find(x=>key(x.name)===key(d.name));
+ let c=result.find(x=>!x.extra&&key(x.name)===key(d.name));
  if(!c){c=course(d);result.push(c);}
  c.teacher=[...new Set([c.teacher,d.teacher].filter(Boolean).flatMap(t=>t.split(/\s*\/\s*/)))].join(" / ");
  const signature=s=>JSON.stringify([s.day,s.start,s.end,s.weeks,s.parity,s.location,(!s.start&&!s.end)?s.sourceSlot||"":""]);
@@ -48,5 +48,4 @@ function mergeDrafts(existing,drafts){
 root.CourseModel={id,course,session,rows,validate,confirmedEvents,exportEvents,mergeDrafts};
 if(typeof module!=="undefined")module.exports=root.CourseModel;
 })(globalThis);
-
 

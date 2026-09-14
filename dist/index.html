@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>课表入历 · 因为受不了……</title><meta name="description" content="登记一次课程，安排每周多个时段；识图预填后检查，生成整学期日历。"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232c56df'/%3E%3Cpath d='M8 10h16v15H8z' fill='white'/%3E%3C/svg%3E"><link rel="stylesheet" href="style.css"></head>
 <body><header><b>因为受不了…… <span>/ 课表入历</span></b><span>内测版 v0.1.1</span></header>
-<section id="entryScreen" class="entry-screen"><h1>先选择时间填写方式</h1><p>把课表整理成你的学期日历</p><div class="entry-options"><button id="chooseSchool" type="button" class="primary">填写学校作息表<small>按星期、节次识别，自动计算时间</small></button><button id="chooseManual" type="button">手动输入时间<small>先识别课程和地点，登记后填时间</small></button></div></section><section id="scheduleScreen" hidden><button id="backFromSchool" type="button">返回选择</button><section id="schoolPanel"><h2>学校作息表 · 按节次自动填时间</h2><p>每行对应一节课，可直接修改上课和下课时间。修改上方参数会重新计算下表；请先设置参数，再调整大课间。</p><div class="fields"><label>上午节数<input id="amCount" type="number" min="0" max="16" value="4"></label><label>上午开始<input id="amStart" type="time" value="08:00"></label><label>下午节数<input id="pmCount" type="number" min="0" max="16" value="4"></label><label>下午开始<input id="pmStart" type="time" value="14:00"></label><label>每节分钟<input id="lessonMinutes" type="number" value="45"></label><label>课间分钟<input id="breakMinutes" type="number" value="10"></label></div><div id="scheduleRows"></div><button id="saveSchedule" type="button">确认使用此作息表</button><p id="scheduleStatus" role="status" aria-live="polite"></p></section></section><main id="mainScreen" hidden><div class="actions"><button id="backToEntry" type="button">更换时间填写方式</button><button id="editSchool" type="button" hidden>修改学校作息</button><span id="modeLabel"></span></div><div class="intro"><div><h1>一门课，只登记一次。</h1><p>登记课程 → 安排每周时段 → 核对并导出</p></div><label class="semester">第一教学周的周一<input id="semester" type="date" value="2026-09-07"><small>请按学校校历修改 · 中国标准时间</small></label></div>
+<section id="entryScreen" class="entry-screen"><h1>先选择时间填写方式</h1><p>把课表整理成你的学期日历</p><div class="entry-options"><button id="chooseSchool" type="button" class="primary">填写学校作息表<small>按星期、节次识别，自动计算时间</small></button><button id="chooseManual" type="button">手动输入时间<small>先识别课程和地点，登记后填时间</small></button></div></section><section id="scheduleScreen" hidden><button id="backFromSchool" type="button">返回选择</button><section id="schoolPanel"><h2>学校作息表 · 按节次自动填时间</h2><p>点击时间框，通过滚轮翻页选择时间；修改上课或下课时间时，会按“每节分钟”自动推算另一项。修改上方参数会重新计算整张表。</p><div class="fields"><label>上午节数<input id="amCount" type="number" min="0" max="16" value="4"></label><label>上午开始<input id="amStart" type="time" value="08:00"></label><label>下午节数<input id="pmCount" type="number" min="0" max="16" value="4"></label><label>下午开始<input id="pmStart" type="time" value="14:00"></label><label>每节分钟<input id="lessonMinutes" type="number" value="45"></label><label>课间分钟<input id="breakMinutes" type="number" value="10"></label></div><div id="scheduleRows"></div><button id="saveSchedule" type="button">确认使用此作息表</button><p id="scheduleStatus" role="status" aria-live="polite"></p></section></section><main id="mainScreen" hidden><div class="actions"><button id="backToEntry" type="button">更换时间填写方式</button><button id="editSchool" type="button" hidden>修改学校作息</button><span id="modeLabel"></span></div><div class="intro"><div><h1>一门课，只登记一次。</h1><p>登记课程 → 安排每周时段 → 核对并导出</p></div><label class="semester">第一教学周的周一<input id="semester" type="date" value="2026-09-07"><small>请按学校校历修改 · 中国标准时间</small></label></div>
 ﻿
 <div class="workspace"><aside class="registry">
 <section><h2><span>01</span> 登记课程</h2><form id="registerForm"><label>课程名称<input id="registerName" required maxlength="100" placeholder="例如：数据结构"></label><div class="fields"><label>教师（选填）<input id="registerTeacher" maxlength="100"></label><label>默认教室（选填）<input id="registerLocation" maxlength="100" placeholder="教五 201"></label></div><button class="primary full" type="submit">＋ 登记课程</button></form>
@@ -13,11 +13,34 @@
 <div class="rule-defaults"><p class="hint">新时段默认规则（已有时段可逐条修改）</p><div class="fields"><label>上课周数<input id="defaultWeeks" value="1-16" placeholder="1-8,10,12-16"></label><label>单双周<select id="defaultParity"><option value="all">每周</option><option value="odd">单周</option><option value="even">双周</option></select></label></div></div>
 <fieldset><legend>每周哪几天有课？可多选</legend><div id="weekdays" class="weekdays"></div></fieldset><div id="sessions"></div><button id="confirmCourse" class="primary full" type="button">保存时间并确认这门课</button><p id="editorMessage" role="status" aria-live="polite"></p>
 </div></section>
+<section id="holidayPanel">
+ <div class="title"><h2>选择停课日期</h2><span class="badge" id="holidayCount">0 天停课</span></div>
+ <p class="hint">高亮的日期不排课，再点一次恢复上课。停课不会改变教学周编号，也适用于额外加课。</p>
+ <div class="holiday-modes" role="group" aria-label="停课选择方式">
+  <button type="button" id="manualHolidays" aria-pressed="true">手动选择</button>
+  <button type="button" id="nationalHolidays" aria-pressed="false">法定节假日</button>
+ </div>
+ <p id="holidayStatus" class="hint" role="status"></p>
+ <div class="month-nav"><button type="button" id="previousHolidayMonth" aria-label="上个月">‹</button><label>选择月份<input type="month" id="holidayMonth" min="2000-01" max="2100-12"></label><button type="button" id="nextHolidayMonth" aria-label="下个月">›</button></div>
+ <div class="holiday-calendar" id="holidayCalendar" aria-label="停课日期日历"></div>
+ <p class="holiday-legend"><span>■ 高亮：停课</span><span>班：国家调休上班日</span></p>
+ <details><summary>已选停课日期 · 点击移除</summary><div id="holidaySelected" class="holiday-selected"></div></details>
+ <details id="makeupPanel"><summary>调休补课安排</summary><p class="hint">国家通知规定上班日期，但学校补哪天的课需按校历设置。选择来源日期后，该日常规课表被替换为来源日期的课程（含来源教学周和单双周）；额外加课仍保留。高亮停课优先。</p><div id="nationalWorkdays"></div>
+ <form id="makeupForm"><div class="fields"><label>补课日期<input id="makeupTarget" type="date" required></label><label>补哪一天的课<input id="makeupSource" type="date" required></label></div><button type="submit" class="full">保存补课安排</button></form><div id="makeupList"></div><p id="makeupMessage" role="status"></p></details>
+</section>
+<section id="extraPanel">
+ <h2>额外加课</h2><p class="hint">添加课表图片中没有的实验课等安排。例如第 5、7、9 周周三的实验；登记后可在课程列表中继续编辑、增加时段并确认。</p>
+ <form id="extraForm">
+  <div class="fields"><label>加课名称<input id="extraName" maxlength="100" required placeholder="例如：电路实验"></label><label>教师（选填）<input id="extraTeacher" maxlength="100"></label>
+  <label>教室（选填）<input id="extraLocation" maxlength="100"></label><label>星期<select id="extraDay"><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select></label>
+  <label>上课周数<input id="extraWeeks" required placeholder="例如 5,7,9 或 5-10"></label><label>单双周<select id="extraParity"><option value="all">所填全部周</option><option value="odd">单周</option><option value="even">双周</option></select></label>
+  <label>开始时间<input id="extraStart" type="time" required></label><label>结束时间<input id="extraEnd" type="time" required></label></div>
+  <button type="submit" class="primary full">登记额外加课</button><p id="extraMessage" role="status"></p>
+ </form>
+</section>
 <section class="export-panel"><div class="title"><h2><span>03</span> 核对整学期</h2><b id="count">0 次课程</b></div><p id="pending" role="status"></p><p id="conflicts" role="status"></p><details><summary>查看已确认课程的具体日期</summary><div id="events"></div></details><button id="download" class="primary full" disabled>下载日历文件 .ics</button><p id="message" role="status" aria-live="polite"></p><p class="hint">所有课程确认后才能导出。重复导入可能重复课程；网页修改不会自动更新日历。</p><details><summary>如何导入 Apple Calendar？</summary><ol><li>在 Mac 日历中新建专用 iCloud 日历，例如“本学期课表”。</li><li>选择“文件 → 导入”，打开 .ics 并选中该日历。</li><li>核对首末周、单双周和提醒；其他设备通过 iCloud 日历同步。</li></ol><p>iPhone/iPad 直接导入入口仍待真机验证，当前建议通过 Mac 导入。</p><a href="https://support.apple.com/en-gb/guide/calendar/icl1023/mac" target="_blank" rel="noreferrer">Apple 官方导入说明 ↗</a></details></section></div></div>
-<footer>暂不保存草稿，刷新会清空输入。调休、节假日不会自动调整。</footer></main>
-<script src="school-schedule.js"></script><script src="calendar.js"></script><script src="course-model.js"></script><script src="course-import.js"></script><script src="course-vision.js"></script><script src="ocr.js"></script><script src="app.js"></script><script src="schedule-ui.js"></script><script src="entry-flow.js"></script></body></html>
-
-
+<footer>暂不保存草稿，刷新会清空课程、停课和补课安排。请按学校校历核对节假日与调休。</footer></main>
+<script src="school-schedule.js"></script><script src="calendar.js"></script><script src="course-model.js"></script><script src="course-import.js"></script><script src="course-vision.js"></script><script src="ocr.js"></script><script src="calendar-adjustments.js"></script><script src="app.js"></script><script src="calendar-options-ui.js"></script><script src="schedule-ui.js"></script><script src="entry-flow.js"></script></body></html>
 
 
 

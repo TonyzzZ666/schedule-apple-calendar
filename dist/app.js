@@ -13,7 +13,7 @@ function renderRegistry(){
  for(const c of courses){
  const b=button("",()=>selectCourse(c.id),"course-choice"+(selected===c.id?" selected":""));
  b.setAttribute("aria-pressed",String(selected===c.id));
- b.append(node("strong",c.name||"未命名课程"),node("span",(c.teacher?c.teacher+" · ":"")+c.sessions.length+" 个上课时段","hint"),node("span",c.needsReview?"待核对":"已确认",c.needsReview?"status pending":"status ready"));
+ b.append(node("strong",(c.extra?"[加课] ":"")+(c.name||"未命名课程")),node("span",(c.teacher?c.teacher+" · ":"")+c.sessions.length+" 个上课时段","hint"),node("span",c.needsReview?"待核对":"已确认",c.needsReview?"status pending":"status ready"));
  $("courses").append(b);
  }
 }
@@ -22,9 +22,9 @@ function renderSummary(){
  $("pending").textContent=pending.length?pending.length+" 门课程待核对，全部确认后即可导出。":courses.length?"全部课程已确认。":"登记课程后在这里预览。";
  $("events").replaceChildren();$("download").disabled=true;
  try{
- const events=M.confirmedEvents(courses,$("semester").value);
+ const events=adjustEvents(M.confirmedEvents(courses,$("semester").value));
  $("count").textContent=events.length+" 次已确认课程";
- for(const e of events)$("events").append(node("div",e.date+" · 周"+DAYS[e.day-1]+" · 第 "+e.week+" 周 · "+e.start+"–"+e.end+"　"+e.name+(e.location?" / "+e.location:""),"event"));
+ for(const e of events)$("events").append(node("div",e.date+" · 周"+DAYS[e.day-1]+" · 第 "+e.week+" 周 · "+e.start+"–"+e.end+"　"+e.name+(e.location?" / "+e.location:"")+(e.extra?" · 额外加课":"")+(e.makeupSource?" · 补 "+e.makeupSource+" 的课":""),"event"));
  let overlaps=0;for(let i=0;i<events.length;i++)for(let j=i+1;j<events.length&&events[j].begin<events[i].finish;j++)overlaps++;
  $("conflicts").textContent=overlaps?"发现 "+overlaps+" 组已确认时段重叠，请检查具体日期。":"";
  $("download").disabled=!events.length||!!pending.length;
@@ -92,13 +92,26 @@ for(const [field,key] of [["editName","name"],["editTeacher","teacher"],["editLo
 $("registerForm").onsubmit=e=>{
  e.preventDefault();const name=$("registerName").value.trim();if(!name)return;
  const c=M.course({name,teacher:$("registerTeacher").value.trim(),location:$("registerLocation").value.trim()});
- const duplicate=courses.find(x=>x.name.normalize("NFKC").replace(/\s/g,"").toLowerCase()===c.name.normalize("NFKC").replace(/\s/g,"").toLowerCase());
+ const duplicate=courses.find(x=>!x.extra&&x.name.normalize("NFKC").replace(/\s/g,"").toLowerCase()===c.name.normalize("NFKC").replace(/\s/g,"").toLowerCase());
  if(duplicate){selectCourse(duplicate.id);say("这门课已经登记，直接修改已有课程即可。");return;}
  courses.push(c);$("registerForm").reset();selectCourse(c.id);renderSummary();say("已登记，请在右侧选择上课日。");
 };
 $("confirmCourse").onclick=()=>{
  const c=current();if(!c)return;
- try{M.validate(c,$("semester").value);c.needsReview=false;renderRegistry();renderSummary();say("已保存并确认这门课。","editorMessage");}catch(e){say(e.message,"editorMessage");}
+ try{
+ M.validate(c,$("semester").value);c.needsReview=false;
+ const index=courses.indexOf(c);
+ const next=[...courses.slice(index+1),...courses.slice(0,index)].find(course=>course.needsReview);
+ if(next){
+ selectCourse(next.id);
+ say("已确认“"+c.name+"”，请继续核对“"+next.name+"”。","editorMessage");
+ $("editor").scrollIntoView?.({behavior:"smooth",block:"start"});
+ }else{
+ renderRegistry();
+ say("所有已登记课程均已确认，可以核对整学期并下载日历。","editorMessage");
+ }
+ renderSummary();
+ }catch(e){say(e.message,"editorMessage");}
 };
 $("deleteCourse").onclick=()=>{
  const c=current();if(!c||!confirm("删除“"+c.name+"”及其全部上课时段？"))return;
@@ -110,7 +123,7 @@ $("semester").onchange=()=>{
 };
 $("download").onclick=()=>{
  try{
- const events=M.exportEvents(courses,$("semester").value),url=URL.createObjectURL(new Blob([C.ics(events)],{type:"text/calendar;charset=utf-8"}));
+ const events=adjustEvents(M.exportEvents(courses,$("semester").value)),url=URL.createObjectURL(new Blob([C.ics(events)],{type:"text/calendar;charset=utf-8"}));
  const a=document.createElement("a");a.href=url;a.download="本学期课表.ics";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
  say("已生成 "+events.length+" 次课程，请在 Apple Calendar 中导入。");
  }catch(e){say(e.message);}
@@ -187,7 +200,7 @@ $("recognize").onclick=async()=>{
  finally{recognizing=false;$("recognize").disabled=!imageFile;$("imageFile").disabled=false;$("cancelOcr").hidden=true;$("ocrProgress").hidden=true;}
 };
 $("cancelOcr").onclick=()=>{recognizing=false;CourseOcr.cancel();say("已取消识别。","ocrStatus");};
-window.addEventListener("beforeunload",e=>{if(courses.length||candidates.length||$("registerName").value){e.preventDefault();e.returnValue="";}});
+window.addEventListener("beforeunload",e=>{if(courses.length||candidates.length||$("registerName").value||globalThis.CalendarOptions?.hasChanges()) {e.preventDefault();e.returnValue="";}});
 renderRegistry();renderSummary();
 
 if(location.protocol==="file:"){$("launchNotice").hidden=false;$("launchNotice").textContent="当前是文件打开模式。识图请使用项目根目录的「启动课表工具.cmd」；手动登记仍可使用。";}
@@ -197,3 +210,14 @@ if(location.protocol==="file:"){$("launchNotice").hidden=false;$("launchNotice")
 
 
 window.refreshInputMode=()=>{candidates=[];renderCandidates();renderSchedule();};
+
+function adjustEvents(events){return globalThis.CalendarOptions?CalendarOptions.apply(events):events;}
+window.registerExtraCourse=info=>{
+ const c=M.course({...info,extra:true});
+ c.sessions=[M.session(info)];
+ M.validate(c,$("semester").value);
+ courses.push(c);selectCourse(c.id);renderSummary();
+ $("editor").scrollIntoView?.({behavior:"smooth",block:"start"});
+ say("额外加课已登记，请核对后保存确认。","editorMessage");
+};
+window.refreshCalendarSummary=renderSummary;
