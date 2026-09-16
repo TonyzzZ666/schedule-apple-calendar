@@ -18,16 +18,17 @@ function renderRegistry(){
  }
 }
 function renderSummary(){
+ globalThis.DraftStore?.schedule();
  const pending=courses.filter(c=>c.needsReview);
  $("pending").textContent=pending.length?pending.length+" 门课程待核对，全部确认后即可导出。":courses.length?"全部课程已确认。":"登记课程后在这里预览。";
- $("events").replaceChildren();$("download").disabled=true;
+ $("events").replaceChildren();$("download").disabled=true;$("downloadOnly").disabled=true;
  try{
  const events=adjustEvents(M.confirmedEvents(courses,$("semester").value));
  $("count").textContent=events.length+" 次已确认课程";
  for(const e of events)$("events").append(node("div",e.date+" · 周"+DAYS[e.day-1]+" · 第 "+e.week+" 周 · "+e.start+"–"+e.end+"　"+e.name+(e.location?" / "+e.location:"")+(e.extra?" · 额外加课":"")+(e.makeupSource?" · 补 "+e.makeupSource+" 的课":""),"event"));
  let overlaps=0;for(let i=0;i<events.length;i++)for(let j=i+1;j<events.length&&events[j].begin<events[i].finish;j++)overlaps++;
  $("conflicts").textContent=overlaps?"发现 "+overlaps+" 组已确认时段重叠，请检查具体日期。":"";
- $("download").disabled=!events.length||!!pending.length;
+ $("download").disabled=!events.length||!!pending.length;$("downloadOnly").disabled=$("download").disabled;
  }catch(e){$("count").textContent="请检查设置";$("conflicts").textContent=e.message;}
 }
 function inputField(text,value,type,onInput){
@@ -123,12 +124,15 @@ $("semester").onchange=()=>{
 };
 $("download").onclick=()=>{
  try{
- const events=adjustEvents(M.exportEvents(courses,$("semester").value)),url=URL.createObjectURL(new Blob([C.ics(events)],{type:"text/calendar;charset=utf-8"}));
+ const events=adjustEvents(M.exportEvents(courses,$("semester").value));
+ if(globalThis.CalendarDelivery){CalendarDelivery.start(events,$("semester").value);return;}
+ const url=URL.createObjectURL(new Blob([C.ics(events)],{type:"text/calendar;charset=utf-8"}));
  const a=document.createElement("a");a.href=url;a.download="本学期课表.ics";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
  say("已生成 "+events.length+" 次课程，请在 Apple Calendar 中导入。");
  }catch(e){say(e.message);}
 };
 function renderCandidates(){
+ globalThis.DraftStore?.schedule();
  $("candidates").replaceChildren();$("importCandidates").hidden=!candidates.length;
  candidates.forEach((c,i)=>{
  const card=node("div","","candidate"),label=node("label","","candidate-select"),check=document.createElement("input");
@@ -200,7 +204,7 @@ $("recognize").onclick=async()=>{
  finally{recognizing=false;$("recognize").disabled=!imageFile;$("imageFile").disabled=false;$("cancelOcr").hidden=true;$("ocrProgress").hidden=true;}
 };
 $("cancelOcr").onclick=()=>{recognizing=false;CourseOcr.cancel();say("已取消识别。","ocrStatus");};
-window.addEventListener("beforeunload",e=>{if(courses.length||candidates.length||$("registerName").value||globalThis.CalendarOptions?.hasChanges()) {e.preventDefault();e.returnValue="";}});
+window.addEventListener("beforeunload",e=>{if(globalThis.DraftStore?.discarding||globalThis.DraftStore?.flush())return;if(courses.length||candidates.length||$("registerName").value||globalThis.CalendarOptions?.hasChanges()) {e.preventDefault();e.returnValue="";}});
 renderRegistry();renderSummary();
 
 if(location.protocol==="file:"){$("launchNotice").hidden=false;$("launchNotice").textContent="当前是文件打开模式。识图请使用项目根目录的「启动课表工具.cmd」；手动登记仍可使用。";}
@@ -221,3 +225,13 @@ window.registerExtraCourse=info=>{
  say("额外加课已登记，请核对后保存确认。","editorMessage");
 };
 window.refreshCalendarSummary=renderSummary;
+window.CourseWorkspace={
+ get:()=>({courses,candidates,selected,semester:$("semester").value}),
+ restore:state=>{
+ courses=state.courses;candidates=state.candidates;selected=state.selected;
+ $("semester").value=state.semester;
+ selectCourse(courses.some(c=>c.id===selected)?selected:courses[0]?.id||null);
+ renderCandidates();renderSummary();
+ },
+ events:()=>adjustEvents(M.exportEvents(courses,$("semester").value))
+};

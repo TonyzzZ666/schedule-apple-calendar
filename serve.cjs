@@ -3,7 +3,9 @@ const http=require("node:http"),fs=require("node:fs"),path=require("node:path");
 function createServer(rootDir=path.join(__dirname,"dist")){
  const root=fs.realpathSync(rootDir);
  return http.createServer(async(req,res)=>{
- const allowed=new Set(["127.0.0.1:"+res.socket.localPort,"localhost:"+res.socket.localPort]);
+ const port=req.socket?.localPort;
+ if(!port||res.destroyed)return;
+ const allowed=new Set(["127.0.0.1:"+port,"localhost:"+port]);
  if(!allowed.has(req.headers.host)){res.writeHead(403);res.end("Local access only");return;}
  if(req.method!=="GET"&&req.method!=="HEAD"){res.writeHead(405,{Allow:"GET, HEAD"});res.end();return;}
  try{
@@ -29,7 +31,8 @@ if(require.main===module){
  const url="http://127.0.0.1:4173";
  console.log("课表入历已启动："+url+"\n请保持此窗口打开。按 Ctrl+C 停止。\n仅提供本机静态文件；图片不会上传，识图无需联网。");
  if(process.argv.includes("--open")){
- const child=require("node:child_process").spawn("explorer.exe",[url],{windowsHide:true,stdio:"ignore"});
+ const opener=process.platform==="darwin"?"/usr/bin/open":process.platform==="win32"?"explorer.exe":"xdg-open";
+ const child=require("node:child_process").spawn(opener,[url],{windowsHide:true,stdio:"ignore"});
  child.on("error",()=>console.log("请手动在浏览器打开上述地址。"));
  }
  });

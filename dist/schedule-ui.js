@@ -62,10 +62,11 @@ dialog.querySelector('[data-action="done"]').onclick=()=>closePicker(true);
 dialog.addEventListener("cancel",event=>{event.preventDefault();closePicker(false);});
 dialog.addEventListener("click",event=>{if(event.target===dialog)closePicker(false);});
 
-function update(){
+function update(savedRows){
  try{
   const counts=["am","pm"].map(p=>{if(el(p+"Count").value==="")throw Error("请填写上午和下午节数");return {count:Number(el(p+"Count").value),start:el(p+"Start").value};});
   draft=SchoolSchedule.generate(counts,duration(),Number(el("breakMinutes").value));parametersValid=true;
+  if(Array.isArray(savedRows))draft=savedRows.map(row=>({section:row.section,start:row.start,end:row.end}));
   const fragment=document.createDocumentFragment();
   for(const row of draft){
    const wrap=document.createElement("div");wrap.className="school-time-row";
@@ -84,5 +85,9 @@ function update(){
 }
 for(const id of ["amCount","pmCount","amStart","pmStart","lessonMinutes","breakMinutes"])el(id).addEventListener("input",update);
 el("saveSchedule").onclick=()=>{try{if(!parametersValid)throw Error("请检查作息参数");SchoolSchedule.setRows(draft);globalThis.AppFlow?.openMain("school");}catch(e){el("scheduleStatus").textContent=e.message;}};
+window.ScheduleEditor={
+ get:()=>({rows:draft.map(({section,start,end})=>({section,start,end})),parametersValid}),
+ restore:state=>{update(state.rows);parametersValid=state.parametersValid;validate();}
+};
 update();
 })();

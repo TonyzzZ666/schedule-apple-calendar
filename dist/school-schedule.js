@@ -20,7 +20,6 @@ function mapSections(box,labels){
  if(!inside.length)return null;
  return {startSection:inside[0].section,endSection:inside.at(-1).section};
 }
-root.SchoolSchedule={generate,validate,resolve,mapSections,getRows:()=>rows.map(r=>({...r})),setRows:r=>{rows=validate(r).map(x=>({...x}));}};
+root.SchoolSchedule={generate,validate,resolve,mapSections,clear:()=>{rows=[];},getRows:()=>rows.map(r=>({...r})),setRows:r=>{rows=validate(r).map(x=>({...x}));}};
 if(typeof module!=="undefined")module.exports=root.SchoolSchedule;
 })(globalThis);
-

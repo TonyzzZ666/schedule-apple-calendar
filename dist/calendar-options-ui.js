@@ -104,6 +104,14 @@ el("extraForm").onsubmit=event=>{
  }catch(e){el("extraMessage").textContent=e.message;}
 };
 window.CalendarOptions={
+ get:()=>({off:[...off],makeups:[...makeups],loaded:[...loaded],mode,month:el("holidayMonth").value}),
+ restore:state=>{
+ off.clear();makeups.clear();loaded.clear();
+ for(const day of state.off)off.add(day);
+ for(const [target,source] of state.makeups)makeups.set(target,source);
+ for(const day of state.loaded)loaded.add(day);
+ mode=state.mode;el("holidayMonth").value=state.month;render();
+ },
  apply:events=>A.apply(events,[...off],[...makeups].filter(([target,source])=>inPeriod(target)&&inPeriod(source)).map(([target,source])=>({target,source}))),
  hasChanges:()=>off.size>0||makeups.size>0||!!el("extraName").value
 };
